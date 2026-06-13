@@ -15,6 +15,11 @@ node scripts/package-sea.mjs   # -> dist/whatspacd   (self-contained binary, Nod
 `dist/main.js` bundles everything except node: builtins (`node:sqlite` is loaded
 natively), so it needs only Node ≥ 22.5. The SEA binary needs no Node at all.
 
+> The SEA step injects into the Node executable used to build it, so it requires
+> an **official statically-linked Node** (what `actions/setup-node` installs, and
+> what the release workflow uses). A distro's shared-`libnode` build (e.g. a thin
+> `/usr/bin/node`) cannot be a SEA base — on such hosts use `node dist/main.js`.
+
 ## Standalone
 
 Set the configuration via environment and run the binary or the bundle:
