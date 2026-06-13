@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Whatspac.Wps/Whatspac.Wps.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Whatspac.Wps.Tests/Whatspac.Wps.Tests.csproj" />
+  </Folder>
+</Solution>
