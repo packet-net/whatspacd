@@ -1,0 +1,61 @@
+# pdn-app.yaml — the app-package manifest for running whatspacd as a packet.net
+# (pdn) app. Per docs/platform-contracts.md §3 (pdn app-packages). whatspacd
+# ALSO runs standalone against XRouter/LinBPQ with no pdn at all — this manifest
+# is only consumed when it's deployed as a pdn app.
+#
+# pdn discovers a directory named `whatspac` (== id) under
+# /usr/share/packetnet/apps/whatspac (staged by pdn's deb from a release) or
+# /var/lib/packetnet/apps/whatspac (owner-installed). Discovered != enabled: the
+# node owner enables it via the `apps:` block in packetnet.yaml (the trust grant)
+# and supplies the one required value — the user's WhatsPac callsign.
+manifest: 1
+id: whatspac
+name: WhatsPac
+version: "0.1.0"
+description: Persistent WhatsPac client — holds the WPS link, persists messages/posts while you're away, and exposes a web UI + an RF terminal.
+icon: message-circle
+
+# Both planes: it binds an outbound session over RHP (network) and serves a web
+# UI (web). Capabilities are shown to the owner at enable time, not enforced.
+capabilities: [network, web]
+
+# The supervised daemon. pdn injects PDN_RHP_HOST/PORT (when RHP is enabled),
+# PDN_NODE_CALLSIGN/ALIAS, and PDN_APP_ID/DIR/STATE; whatspacd reads those as
+# config fallbacks, so the only value the owner MUST provide is their WhatsPac
+# callsign, via the apps: override:
+#
+#   apps:
+#     - id: whatspac
+#       enabled: true
+#       environment:
+#         WHATSPACD_CALLSIGN: M0XYZ          # required — the user's WhatsPac callsign
+#         WHATSPACD_NAME: "Jane"             # optional display name
+#         WHATSPACD_NODE_CALL: GB7XYZ        # optional — first connect-script hop
+#         # WHATSPACD_CONNECT_SCRIPT: '[{"cmd":"GB7XYZ","val":"..."},{"cmd":"C MB7NPW-9","val":"*** Connected"}]'
+service:
+  command: ./whatspacd            # the packaged self-contained binary (release asset)
+  managed: pdn                    # pdn supervises: SIGTERM→5s→SIGKILL, 1s→60s backoff, crash-loop breaker
+  restart: on-failure
+  environment:
+    WHATSPACD_WEB_HOST: "127.0.0.1"      # loopback only — must match ui.upstream
+    WHATSPACD_WEB_PORT: "18900"
+    # The RF session socket. MUST match session.socketPath below. pdn injects
+    # PDN_APP_STATE; the daemon defaults its RF socket to $PDN_APP_STATE/whatspac.sock.
+    WHATSPACD_RF_SOCKET: "${PDN_APP_STATE}/whatspac.sock"
+
+# Human plane: pdn reverse-proxies /apps/whatspac/* to this loopback upstream and
+# shows a launcher tile. The web head honours X-Forwarded-Prefix.
+ui:
+  upstream: http://127.0.0.1:18900
+  name: WhatsPac
+  icon: message-circle
+
+# RF plane: a station that types `C WHATSPAC` onto the node gets the line-oriented
+# terminal head over the pdn-app/1 wire. kind: socket — pdn connects to the
+# daemon's Unix socket per session (the long-running shared-state pattern).
+session:
+  match: WHATSPAC
+  kind: socket
+  # MUST match WHATSPACD_RF_SOCKET above. NOTE: confirm on-node whether pdn
+  # interpolates ${PDN_APP_STATE} here; if not, pin an absolute path in both.
+  socketPath: "${PDN_APP_STATE}/whatspac.sock"
